@@ -1,0 +1,1522 @@
+/**
+ * 🚀 SISTEMA HINOVA + CRM (ESTEIRA DE VERIFICAÇÃO DE SINAL)
+ * VERSÃO 27 COLUNAS - MOTOR SGA HÍBRIDO (MECÂNICA ANTIGA + FERRAMENTAS NOVAS)
+ */
+
+/* --- CONFIGURAÇÕES DA API SGA (HINOVA) --- */
+var SGA_CONFIG = {
+  URL_AUTH: "https://api.hinova.com.br/api/sga/v2/usuario/autenticar",
+  URL_CONSULTA_BASE: "https://api.hinova.com.br/api/sga/v2/veiculo/buscar/",
+  TOKEN_ASSOCIACAO: "041e6d561c08d16fce2a5beead2ca02fa4f4ee113d51a6f56e9c9e7c89694e4187b271c6cf997f4ece7bf4180e13ee750cb67ffbaa15d5bc82260c3b57a27cfc114322ab6e29a6dc368f1c2b4ea59702456d6c9df528c97f3386aee5978276f6",
+  USUARIO: "victor rodrigues",
+  SENHA: "ZEN0102"
+};
+
+/* --- CONFIGURAÇÕES DA PLANILHA E MAPA DE COLUNAS --- */
+var CONFIG = {
+  NOME_ABA_PRINCIPAL: "1 - Verificação",
+  ABA_EXPIRADO: "2 - Expirado",
+  ABA_SEM_RETORNO: "Sem retorno",
+  ABA_ERRO: "Erro",
+  ABA_AUDITORIA: "Auditoria",
+  
+  COL_VERIFICADOR: 0,
+  COL_DATA_ENTRADA: 1,
+  COL_NOME: 2,
+  COL_PLACA: 3,
+  COL_CHASSI: 4,
+  COL_FIPE: 5,
+  COL_EMAIL: 6,
+  COL_TELEFONE: 7,
+  COL_BAIRRO: 8,
+  COL_CIDADE: 9,
+  COL_ESTADO: 10,
+  COL_CLASSIFICACAO: 11,
+  COL_SITUACAO: 12,
+  COL_ACAO_API: 13,
+  COL_GUARDAO_1: 14,
+  COL_GUARDAO_2: 15,
+  COL_GUARDAO_3: 16,
+  COL_ENVIAR: 17,
+  COL_CHECK_EMAIL: 18,
+  COL_CHECK_WHATS: 19,
+  COL_DATA_EMAIL: 20,
+  COL_DATA_WHATS: 21,
+  COL_RESPONSAVEL_EMAIL: 22,
+  COL_RESPONSAVEL_WHATS: 23,
+  COL_RESPONDEU: 24,
+  COL_TRAVA_ESTADO: 25,
+  COL_FIPE_BAIXA: 26,
+  
+  QTD_COLUNAS: 27,
+  LINHAS_CABECHALHO: 1,
+
+  /* 📝 BLINDAGEM: Usando texto para evitar erro de colchetes na hora de copiar e colar */
+  COLUNAS_OCULTAS_PARA_NOTAS: "1, 5, 6, 8, 9, 10, 12, 15, 16, 20, 21, 22, 23, 25, 26",
+  
+  /* DESTINO DA NOTA: 3 significa Coluna D (Placa) */
+  COL_DESTINO_NOTA: 3
+};
+
+var MAPA_CLASSIFICACAO = {
+  "1": "Concluido", "2": "Inativo", "3": "Pendente", "4": "Inadimplente", "5": "Negado", "6": "1º boleto pago e s/ rastreador", "7": "Evento", "8": "Indenizado", "9": "Pre-aprovado", "10": "Evento negado", "12": "Inativos com rastreador", "13": "Inativos sem rastreador", "14": "Instalação pendente", "15": "Publicado no spc/serasa", "16": "Aguardando taxa instalação", "17": "Faltando vistoria, sem rastreador", "18": "Pendente", "19": "Aguardando indenização", "20": "Roubo/furto"
+};
+
+/* --- MENU SUPERIOR --- */
+function onOpen() {
+  SpreadsheetApp.getUi().createMenu('🚀 Automação Hinova')
+    .addItem('▶️ Processar Linhas (SGA Hinova)', 'processarVeiculosSGA')
+    .addSeparator()
+    .addItem('🔄 Corrigir Zero KM (Guardião)', 'corrigirZeroKmGuardiao')
+    .addItem('📱 Buscar IMEI (Guardião + Ativos)', 'buscarDadosGuardiao')
+    .addSeparator()
+    .addItem('👤 Autenticar Perfil (Uso Manual)', 'autenticarPerfilManual')
+    .addSeparator()
+    .addItem('👤 Enviar como Jéssica', 'enviarComoJessica')
+    .addItem('👤 Enviar como Guilherme', 'enviarComoGuilherme')
+    .addItem('👤 Enviar como Campos', 'enviarComoCampos')
+    .addItem('👤 Enviar como Priscilane', 'enviarComoPriscilane')
+    .addItem('👤 Enviar como Victor', 'enviarComoVictor')
+    .addItem('👤 Enviar como Marcelle', 'enviarComoMarcelle')
+    .addItem('👤 Enviar como Ana Clara', 'enviarComoAnaClara')
+    .addSeparator()
+    .addItem('📝 Sincronizar Notas (Dados Ocultos)', 'sincronizarComentariosOcultos')
+    .addItem('📍 Atualizar Estados e Travar (Fora RJ)', 'verificarEstadoSGA')
+    .addItem('🚦 Classificar Envios (Ativos/Inativos)', 'classificarEnviosPorStatusSGA')
+    .addItem('🏍️ Destacar Motos no SGA', 'destacarMotocicletasSGA')
+    .addItem('📉 Marcar Fipe Baixa', 'marcarFipeBaixa')
+    .addSeparator()
+    .addItem('📥 Verificar Respostas de E-mail', 'verificarRespostasEmail')
+    .addItem('🛡️ Verificar Duplicados (Placa/Chassi)', 'atualizarVerificacaoDeDuplicados')
+    .addItem('🗑️ Remover Duplicados (Excluir repetidos)', 'removerDuplicadosPlacaChassi')
+    .addSeparator()
+    .addItem('➡️ Migrar: Verificação ➔ Expirado (7 Dias)', 'executarMigracaoExpirado')
+    .addItem('➡️ Migrar: Expirado ➔ Sem Retorno (5 Dias)', 'executarMigracaoSemRetorno')
+    .addSeparator()
+    .addItem('⚠️ Conciliar Erros do Gmail', 'conciliarErrosMailerDaemon')
+    .addItem('🔗 Atualizar Links WhatsApp', 'executarGeradorLinksMenu')
+    .addToUi();
+}
+
+function enviarComoJessica() { dispararFluxo("Jéssica"); }
+function enviarComoGuilherme() { dispararFluxo("Guilherme"); }
+function enviarComoCampos() { dispararFluxo("Campos"); }
+function enviarComoPriscilane() { dispararFluxo("Priscilane"); }
+function enviarComoVictor() { dispararFluxo("Victor"); }
+function enviarComoMarcelle() { dispararFluxo("Marcelle"); }
+function enviarComoAnaClara() { dispararFluxo("Ana Clara"); }
+
+
+/* --- SISTEMA DE AUTENTICAÇÃO MANUAL --- */
+function autenticarPerfilManual() {
+  var ui = SpreadsheetApp.getUi();
+  var response = ui.prompt(
+    "👤 Autenticar Perfil (Uso Manual)",
+    "Digite o seu nome para registrar nas marcações manuais:\n(Ex: Guilherme, Jéssica, etc)",
+    ui.ButtonSet.OK_CANCEL
+  );
+  
+  if (response.getSelectedButton() == ui.Button.OK) {
+    var nome = response.getResponseText().trim();
+    if (nome !== "") {
+      PropertiesService.getUserProperties().setProperty("PERFIL_MANUAL", nome);
+      Browser.msgBox("✅ Autenticado com sucesso!\n\nPerfil ativo: " + nome);
+    } else {
+      Browser.msgBox("⚠️ Nome em branco. Operação cancelada.");
+    }
+  }
+}
+
+function executarGeradorLinksMenu() {
+  var intervalo = pedirIntervaloLinhas("🔗 Atualizar Links WhatsApp");
+  if (!intervalo) {
+    return;
+  }
+  executarGeradorLinksManual(intervalo);
+}
+/* --- 🚦 Classificar Envios (Ativos/Inativos) --- */
+function classificarEnviosPorStatusSGA() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var aba = ss.getActiveSheet();
+  var ultimaLinha = aba.getLastRow();
+
+  // Se a planilha só tiver cabeçalho, encerra
+  if (ultimaLinha <= CONFIG.LINHAS_CABECHALHO) return;
+
+  var range = aba.getRange(1, 1, ultimaLinha, CONFIG.QTD_COLUNAS);
+  var dados = range.getValues();
+  var houveAlteracao = false;
+  var contClassificados = 0;
+
+  for (var i = CONFIG.LINHAS_CABECHALHO; i < dados.length; i++) {
+    // Pegando os valores das colunas e padronizando os textos (minúsculas/maiúsculas)
+    var statusEnvio = dados[i][CONFIG.COL_ENVIAR] ? dados[i][CONFIG.COL_ENVIAR].toString().trim().toLowerCase() : "";
+    var classificacao = dados[i][CONFIG.COL_CLASSIFICACAO] ? dados[i][CONFIG.COL_CLASSIFICACAO].toString().trim().toLowerCase() : "";
+    var situacao = dados[i][CONFIG.COL_SITUACAO] ? dados[i][CONFIG.COL_SITUACAO].toString().trim().toUpperCase() : "";
+
+    // 1. Pular a verificação se já estiver com status definitivo
+    if (statusEnvio === "enviar" || statusEnvio === "não enviar" || statusEnvio === "nao enviar" || statusEnvio === "enviado") {
+      continue;
+    }
+
+    // 2. Se a Classificação for DIFERENTE de "Concluido", marca para "Verificar"
+    if (classificacao !== "concluído" && classificacao !== "concluido") {
+       dados[i][CONFIG.COL_ENVIAR] = "Verificar"; // Idêntico à validação
+       houveAlteracao = true;
+       contClassificados++;
+       continue; // Pula para a próxima linha
+    }
+
+    // 3. Se a Classificação for "Concluido", analisa a coluna "Situação"
+    if (situacao === "ATIVO") {
+      dados[i][CONFIG.COL_ENVIAR] = "enviar"; // <-- CORRIGIDO AQUI (e minúsculo)
+      houveAlteracao = true;
+      contClassificados++;
+    } else {
+      // Qualquer situação que não seja "ATIVO" (ex: Inativo, Pendente)
+      dados[i][CONFIG.COL_ENVIAR] = "Não enviar"; // Idêntico à validação
+      houveAlteracao = true;
+      contClassificados++;
+    }
+  }
+
+  // Salva todas as alterações na planilha de uma só vez
+  if (houveAlteracao) {
+    range.setValues(dados);
+    SpreadsheetApp.flush();
+    Browser.msgBox("🚦 Classificação Concluída!\\n\\n" + contClassificados + " linhas atualizadas com sucesso.");
+  } else {
+    Browser.msgBox("🚦 Nenhuma linha precisava ser classificada no momento.");
+  }
+}
+/* --- 🛡️ FUNÇÃO DE INTERVALO SUPER BLINDADA (PESCADOR DE NÚMEROS) --- */
+function pedirIntervaloLinhas(nomeAcao) {
+  var ui = SpreadsheetApp.getUi();
+  var response = ui.prompt(
+    nomeAcao,
+    "Deixe em branco para varrer TODAS as pendências da aba.\nOu digite as linhas (Ex: 208-220):",
+    ui.ButtonSet.OK_CANCEL
+  );
+  
+  if (response.getSelectedButton() !== ui.Button.OK) {
+    return null;
+  }
+  
+  var input = response.getResponseText().trim();
+  
+  if (input === "") {
+    return { inicio: -1, fim: -1 };
+  }
+  
+  var numeros = input.match(/\d+/g);
+  
+  if (numeros && numeros.length >= 2) {
+    return {
+      inicio: parseInt(numeros, 10),
+      fim: parseInt(numeros, 10)
+    };
+  } else if (numeros && numeros.length === 1) {
+    return {
+      inicio: parseInt(numeros, 10),
+      fim: parseInt(numeros, 10)
+    };
+  } else {
+    Browser.msgBox("❌ Formato não reconhecido!\n\nVocê digitou: '" + input + "'\nTente digitar apenas os números. Exemplo: 208-220");
+    return null;
+  }
+}
+
+/**
+ * 📝 SINCRONIZAR NOTAS OCULTAS (ISOLAMENTO ESTRITO POR LINHA - V3)
+ * Uso de let/const para garantir que os dados não vazem entre clientes.
+ */
+function sincronizarComentariosOcultos() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const aba = ss.getActiveSheet();
+  const ultimaLinha = aba.getLastRow();
+  
+  if (ultimaLinha < 2) {
+    return Browser.msgBox("⚠️ A planilha não tem dados suficientes.");
+  }
+
+  const rangeTotal = aba.getRange(1, 1, ultimaLinha, 27);
+  const dados = rangeTotal.getValues();
+  
+  // 🛡️ Nomes atualizados conforme seu pedido
+  const nomesDasColunas = {
+    1: "Data de Entrada",
+    5: "Fipe Alta",
+    6: "Email",
+    8: "Bairro",
+    9: "Cidade",
+    10: "Estado",
+    12: "Situação",
+    15: "Guardião 2",
+    16: "Guardião 3",
+    20: "Data Email",
+    21: "Data Whats",
+    22: "Responsável Email",
+    23: "Responsável Whats",
+    25: "Trava Estado",
+    26: "Fipe Baixa"
+  };
+  
+  const colunasOcultasTexto = "1, 5, 6, 8, 9, 10, 12, 15, 16, 20, 21, 22, 23, 25, 26";
+  const colunasOcultas = colunasOcultasTexto.split(",").map(function(num) {
+    return parseInt(num.trim(), 10);
+  });
+
+  const matrizDeNotas = [];
+
+  for (let i = 0; i < dados.length; i++) {
+    if (i === 0) {
+      matrizDeNotas.push([""]);
+      continue;
+    }
+
+    const linhaAtual = dados[i];
+    let textoDaNota = "";
+    let temInformacaoValida = false;
+
+    for (let c = 0; c < colunasOcultas.length; c++) {
+      const idxColuna = colunasOcultas[c];
+      const valorDaCelula = linhaAtual[idxColuna];
+      
+      const nomeDaColuna = nomesDasColunas[idxColuna] || ("Coluna " + idxColuna);
+
+      if (valorDaCelula !== "" && valorDaCelula !== null && valorDaCelula !== undefined) {
+        let valorFormatado = valorDaCelula;
+
+        // 1. Formatação de data
+        if (valorDaCelula instanceof Date) {
+          valorFormatado = Utilities.formatDate(valorDaCelula, Session.getScriptTimeZone(), "dd/MM/yyyy");
+        } 
+        // 2. Trava para Checkboxes (True/False viram Sim/Não em vez de 1 e 0)
+        else if (typeof valorDaCelula === "boolean") {
+          valorFormatado = valorDaCelula ? "Sim" : "Não";
+        }
+        // 3. Formatação de Moeda APENAS se for um número de verdade
+        else if ((idxColuna === 5 || idxColuna === 26) && typeof valorDaCelula === "number") {
+          valorFormatado = "R$ " + Number(valorDaCelula).toLocaleString('pt-BR', {minimumFractionDigits: 2});
+        }
+
+        textoDaNota += "📌 " + nomeDaColuna + ": " + valorFormatado + "\n";
+        temInformacaoValida = true;
+      }
+    }
+
+    matrizDeNotas.push([temInformacaoValida ? textoDaNota.trim() : ""]);
+  }
+
+  try {
+    const rangeNotas = aba.getRange(1, 4, ultimaLinha, 1);
+    rangeNotas.clearNote(); 
+    rangeNotas.setNotes(matrizDeNotas); 
+    
+    SpreadsheetApp.flush();
+    Browser.msgBox("✅ Tudo pronto! Comentários 100% formatados e sincronizados.");
+  } catch (e) {
+    Browser.msgBox("❌ Erro ao gravar notas: " + e.message);
+  }
+}
+/* --- INTEGRAÇÃO PRINCIPAL HINOVA (MECÂNICA ANTIGA RESTAURADA) --- */
+function processarVeiculosSGA() {
+  var tokenSessao = autenticarSGA();
+  if (!tokenSessao) {
+    Browser.msgBox("❌ Falha na autenticação SGA Hinova.");
+    return;
+  }
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var planilha = ss.getActiveSheet();
+  var ultimaLinha = planilha.getLastRow();
+  if (ultimaLinha <= CONFIG.LINHAS_CABECHALHO) return; 
+  
+  var range = planilha.getRange(1, 1, ultimaLinha, CONFIG.QTD_COLUNAS);
+  var dados = range.getValues();
+  var houveAlteracao = false;
+  var contProcessados = 0;
+  
+  for (var i = CONFIG.LINHAS_CABECHALHO; i < dados.length; i++) {
+    var acaoAPI = dados[i][CONFIG.COL_ACAO_API] ? dados[i][CONFIG.COL_ACAO_API].toString().trim().toLowerCase() : "";
+    if (acaoAPI !== "verificar") continue; 
+    
+    var placa = dados[i][CONFIG.COL_PLACA] ? dados[i][CONFIG.COL_PLACA].toString().trim().toUpperCase() : "";
+    var chassi = dados[i][CONFIG.COL_CHASSI] ? dados[i][CONFIG.COL_CHASSI].toString().trim().toUpperCase() : "";
+    var valorBusca = placa || chassi;
+    var parametroBusca = placa ? "placa" : "chassi";
+    
+    if (!valorBusca) {
+      dados[i][CONFIG.COL_ACAO_API] = "Falta Placa/Chassi";
+      houveAlteracao = true;
+      continue;
+    }
+    
+    var endpoint = SGA_CONFIG.URL_CONSULTA_BASE + encodeURIComponent(valorBusca) + "/" + parametroBusca;
+    try {
+      var resposta = UrlFetchApp.fetch(endpoint, {
+        "method": "GET",
+        "headers": { "Authorization": "Bearer " + tokenSessao },
+        "muteHttpExceptions": true 
+      });
+      
+      if (resposta.getResponseCode() == 200) {
+        var retorno = JSON.parse(resposta.getContentText());
+        var v = Array.isArray(retorno) ? retorno[0] : retorno;
+        
+        if (v && v.codigo_veiculo) {
+          var dataEntradaCrua = v.data_cadastro || v.data_contrato || v.data_cadastro_associado || v.data_contrato_associado || v.data_inicio_contrato_veiculo || v.data_inicio_contrato_associado || v.data_cadastro_veiculo || v.data_criacao || "";
+          if (!dados[i][CONFIG.COL_DATA_ENTRADA] && dataEntradaCrua) {
+             var stringData = dataEntradaCrua.toString().trim().split(" ")[0]; 
+             if (stringData.indexOf("-") > -1) { 
+                 var partesData = stringData.split("-");
+                 if (partesData.length === 3) dados[i][CONFIG.COL_DATA_ENTRADA] = partesData[2] + "/" + partesData[1] + "/" + partesData[0];
+             } else { 
+                 dados[i][CONFIG.COL_DATA_ENTRADA] = stringData;
+             }
+          }
+          
+          if (!dados[i][CONFIG.COL_NOME]) dados[i][CONFIG.COL_NOME] = (v.nome || v.nome_associado || "").toString().trim();
+          if (!dados[i][CONFIG.COL_PLACA]) dados[i][CONFIG.COL_PLACA] = (v.placa || "").toString().trim().toUpperCase();
+          if (!dados[i][CONFIG.COL_CHASSI]) dados[i][CONFIG.COL_CHASSI] = (v.chassi || "").toString().trim().toUpperCase();
+          if (v.valor_fipe) dados[i][CONFIG.COL_FIPE] = parseFloat(v.valor_fipe.toString().replace(",", ".")); 
+          
+          var codClass = v.codigo_classificacao ? v.codigo_classificacao.toString() : "";
+          dados[i][CONFIG.COL_CLASSIFICACAO] = MAPA_CLASSIFICACAO[codClass] || "Código " + codClass;
+
+          if (!dados[i][CONFIG.COL_EMAIL]) dados[i][CONFIG.COL_EMAIL] = (v.email || "").toString().trim().toLowerCase();
+          if (!dados[i][CONFIG.COL_TELEFONE]) {
+            var fone = (v.ddd_celular ? "(" + v.ddd_celular + ") " : "") + (v.telefone_celular || v.telefone || "");
+            dados[i][CONFIG.COL_TELEFONE] = fone.trim();
+          }
+          
+          if (!dados[i][CONFIG.COL_BAIRRO]) dados[i][CONFIG.COL_BAIRRO] = (v.bairro || "").toString().trim();
+          if (!dados[i][CONFIG.COL_CIDADE]) dados[i][CONFIG.COL_CIDADE] = (v.cidade || "").toString().trim();
+          if (!dados[i][CONFIG.COL_ESTADO]) dados[i][CONFIG.COL_ESTADO] = (v.estado || "").toString().trim();
+          
+          var statusRetornado = v.descricao_situacao_veiculo || v.situacao_veiculo || v.descricao_situacao || v.situacao || "";
+          if (!statusRetornado) {
+            var codSit = v.codigo_situacao_veiculo || v.codigo_situacao;
+            if (codSit == 1 || codSit == "1") statusRetornado = "ATIVO";
+            else if (codSit == 2 || codSit == "2") statusRetornado = "INATIVO";
+            else if (codSit == 3 || codSit == "3") statusRetornado = "PENDENTE";
+            else if (codSit) statusRetornado = "Cód: " + codSit;
+          }
+          dados[i][CONFIG.COL_SITUACAO] = (statusRetornado || "S/ STATUS").toString().trim().toUpperCase();
+          dados[i][CONFIG.COL_ACAO_API] = "Concluído";
+          
+          contProcessados++;
+          houveAlteracao = true;
+        } else {
+          dados[i][CONFIG.COL_ACAO_API] = "Não Encontrado";
+          houveAlteracao = true;
+        }
+      }
+    } catch (e) { Logger.log(e.message); }
+    Utilities.sleep(200); 
+  }
+  if (houveAlteracao) {
+    range.setValues(dados);
+    planilha.getRange(2, CONFIG.COL_FIPE + 1, ultimaLinha - 1, 1).setNumberFormat('R$ #,##0.00');
+    SpreadsheetApp.flush(); 
+  }
+  Browser.msgBox("✅ Verificação Concluída! " + contProcessados + " veículos processados.");
+}
+
+/* --- CorrigirZeroKM --- */
+function corrigirZeroKmGuardiao() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var abaGuardiao = ss.getSheetByName("exportacao_guardiao");
+  var abaAtivos = ss.getSheetByName("ativos");
+  
+  if (!abaGuardiao || !abaAtivos) {
+    return Browser.msgBox("Erro: Abas exportacao_guardiao ou ativos não encontradas!");
+  }
+  
+  var ultimaLinhaAtivos = abaAtivos.getLastRow();
+  if(ultimaLinhaAtivos < 1) return;
+  var dadosAtivos = abaAtivos.getRange(1, 1, ultimaLinhaAtivos, 40).getValues();
+  
+  var mapaImeiChassi = new Map();
+  
+  // 1. Mapeando a aba ativos (sem usar nenhum colchete)
+  for (var i = 1; i < dadosAtivos.length; i++) {
+    var linhaAtivo = dadosAtivos.slice(i, i + 1).pop();
+    
+    // Pega a coluna AB (27) e a coluna E (4)
+    var imeiAtivos = String(linhaAtivo.slice(27, 28).pop() || "").trim();
+    var chassiAtivos = String(linhaAtivo.slice(4, 5).pop() || "").trim().toUpperCase();
+    
+    if (imeiAtivos !== "" && chassiAtivos !== "") {
+      mapaImeiChassi.set(imeiAtivos, chassiAtivos);
+    }
+  }
+  
+  var ultimaLinhaGuardiao = abaGuardiao.getLastRow();
+  if(ultimaLinhaGuardiao < 1) return;
+  var rangeGuardiao = abaGuardiao.getRange(1, 1, ultimaLinhaGuardiao, 20);
+  var dadosGuardiao = rangeGuardiao.getValues();
+  
+  var alterou = false;
+  var cont = 0;
+  var logFalhas = new Array();
+  
+  // 2. Varrendo o Guardião
+  for (var j = 1; j < dadosGuardiao.length; j++) {
+    var linhaGuardiao = dadosGuardiao.slice(j, j + 1).pop();
+    
+    // Pega a Placa (Coluna D=3) e IMEI (Coluna G=6)
+    var placaGuardiao = String(linhaGuardiao.slice(3, 4).pop() || "").trim();
+    var imeiGuardiao = String(linhaGuardiao.slice(6, 7).pop() || "").trim();
+    
+    // REGRA ESTRITA: Exatamente igual a "Zero KM"
+    var temZero = (placaGuardiao === "Zero KM");
+    
+    if (temZero) {
+      if (imeiGuardiao !== "" && mapaImeiChassi.has(imeiGuardiao)) {
+        // Substitui a Placa pelo Chassi direto na memoria
+        linhaGuardiao.splice(3, 1, mapaImeiChassi.get(imeiGuardiao));
+        alterou = true;
+        cont++;
+      } else {
+        logFalhas.push(imeiGuardiao);
+      }
+    }
+  }
+  
+  // 3. Gravando o resultado
+  if (alterou) {
+    rangeGuardiao.setValues(dadosGuardiao);
+    SpreadsheetApp.flush();
+    Browser.msgBox("Sucesso! " + cont + " veiculos Zero Km foram atualizados para o Chassi.");
+  } else {
+    if (logFalhas.length > 0) {
+      var primeiroErro = logFalhas.slice(0, 1).pop();
+      Browser.msgBox("Aviso: O script achou o Zero KM no Guardiao! Ele leu este IMEI: " + primeiroErro + " ... Porem, não achou o Chassi na aba ativos.");
+    } else {
+      Browser.msgBox("Aviso: O script nao encontrou o texto exato 'Zero KM' no Guardiao.");
+    }
+  }
+}
+/* --- Buscardadosguardião --- */
+function buscarDadosGuardiao() {
+  var intervalo = pedirIntervaloLinhas("📱 Buscar IMEI (Guardião + Ativos)");
+  if (!intervalo) {
+    return;
+  }
+  
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var abaDestino = ss.getSheetByName(CONFIG.NOME_ABA_PRINCIPAL);
+  var abaOrigem = ss.getSheetByName("exportacao_guardiao");
+  var abaAtivos = ss.getSheetByName("ativos");
+  
+  if (!abaDestino) {
+    return Browser.msgBox("❌ Aba principal não encontrada!");
+  }
+  
+  var ultimaLinhaDestino = Math.max(abaDestino.getLastRow(), 2);
+  var dadosDestino = abaDestino.getRange(1, 1, ultimaLinhaDestino, CONFIG.QTD_COLUNAS).getValues();
+  
+  function formatarDado(valor) {
+    if (!valor) return "Não informado";
+    if (valor instanceof Date) return Utilities.formatDate(valor, Session.getScriptTimeZone(), "dd/MM/yyyy");
+    return valor.toString().trim() || "Não informado";
+  }
+  
+  var mapaGuardiao = {};
+  var mapaAtivos = {};
+  
+  /* --- 1. LENDO A ABA GUARDIÃO --- */
+  if (abaOrigem) {
+    var dadosOrigem = abaOrigem.getDataRange().getValues();
+    
+    // Mapeamento das colunas do Guardião (D=3, G=6, R=17, S=18, U=20)
+    var COL_PLACA_GD = 3; // Coluna D
+    var COL_IMEI_GD = 6;  // Coluna G
+    var COL_GD2_GD = 17;  // Coluna R
+    var COL_GD3_GD = 18;  // Coluna S
+    var COL_DATA_GD = 20; // Coluna U
+
+    for (var i = 1; i < dadosOrigem.length; i++) {
+      var placaGD = dadosOrigem[i][COL_PLACA_GD] ? dadosOrigem[i][COL_PLACA_GD].toString().trim().toUpperCase() : "";
+      if (placaGD) {
+        var imei = formatarDado(dadosOrigem[i][COL_IMEI_GD]);
+        var r = formatarDado(dadosOrigem[i][COL_GD2_GD]);
+        var s = formatarDado(dadosOrigem[i][COL_GD3_GD]);
+        var u = formatarDado(dadosOrigem[i][COL_DATA_GD]);
+        
+        if (imei !== "Não informado" || r !== "Não informado" || s !== "Não informado") {
+          if (!mapaGuardiao[placaGD]) {
+            mapaGuardiao[placaGD] = [];
+          }
+          mapaGuardiao[placaGD].push({ colG: imei, colR: r, colS: s, colU: u });
+        }
+      }
+    }
+  }
+  
+  /* --- 2. LENDO A ABA ATIVOS --- */
+  if (abaAtivos) {
+    var dadosAtivos = abaAtivos.getDataRange().getValues();
+    
+    // Mapeamento das colunas fixas dos Ativos (D=3, E=4, AB=27, AL=37)
+    var colPlacaAtivos = 3;  // Coluna D
+    var colChassiAtivos = 4; // Coluna E
+    var COL_IMEI_ATV = 27;   // Coluna AB
+    var COL_DATA_ATV = 37;   // Coluna AL
+    
+    for (var i = 1; i < dadosAtivos.length; i++) {
+      var placaAtv = dadosAtivos[i][colPlacaAtivos] ? dadosAtivos[i][colPlacaAtivos].toString().trim().toUpperCase() : "";
+      var chassiAtv = dadosAtivos[i][colChassiAtivos] ? dadosAtivos[i][colChassiAtivos].toString().trim().toUpperCase() : "";
+      
+      var imeiAtivos = formatarDado(dadosAtivos[i][COL_IMEI_ATV]);
+      var dataAtivos = formatarDado(dadosAtivos[i][COL_DATA_ATV]);
+      
+      if (imeiAtivos !== "Não informado") {
+        var registroAtv = { colG: imeiAtivos, colR: "Não informado", colS: "Não informado", colU: dataAtivos };
+        if (placaAtv) {
+          if (!mapaAtivos[placaAtv]) {
+            mapaAtivos[placaAtv] = [];
+          }
+          mapaAtivos[placaAtv].push(registroAtv);
+        }
+        if (chassiAtv && chassiAtv !== placaAtv) {
+          if (!mapaAtivos[chassiAtv]) {
+            mapaAtivos[chassiAtv] = [];
+          }
+          mapaAtivos[chassiAtv].push(registroAtv);
+        }
+      }
+    }
+  }
+  
+  /* --- 3. CRUZANDO E PREENCHENDO A ABA DE VERIFICAÇÃO --- */
+  var contagemPagina1 = {};
+  for (var j = CONFIG.LINHAS_CABECHALHO; j < dadosDestino.length; j++) {
+    var id = (dadosDestino[j][CONFIG.COL_PLACA] || dadosDestino[j][CONFIG.COL_CHASSI] || "").toString().trim().toUpperCase();
+    if (id) {
+      contagemPagina1[id] = (contagemPagina1[id] || 0) + 1;
+    }
+  }
+  
+  var i_inicio = CONFIG.LINHAS_CABECHALHO;
+  var i_fim = dadosDestino.length - 1;
+  if (intervalo.inicio !== -1) {
+    i_inicio = Math.max(intervalo.inicio - 1, CONFIG.LINHAS_CABECHALHO);
+    i_fim = Math.min(intervalo.fim - 1, dadosDestino.length - 1);
+  }
+  
+  var contAtualizados = 0;
+  var houveAlteracao = false;
+  var usoSequencial = {};
+  
+  for (var j = i_inicio; j <= i_fim; j++) {
+    var p = dadosDestino[j][CONFIG.COL_PLACA] ? dadosDestino[j][CONFIG.COL_PLACA].toString().trim().toUpperCase() : "";
+    var c = dadosDestino[j][CONFIG.COL_CHASSI] ? dadosDestino[j][CONFIG.COL_CHASSI].toString().trim().toUpperCase() : "";
+    var idBusca = p || c;
+    
+    if (idBusca) {
+      var recsGD = (p && mapaGuardiao[p]) ? mapaGuardiao[p] : ((c && mapaGuardiao[c]) ? mapaGuardiao[c] : []);
+      var recsAT = (p && mapaAtivos[p]) ? mapaAtivos[p] : ((c && mapaAtivos[c]) ? mapaAtivos[c] : []);
+      var registros = [];
+      var imeiSet = {};
+      
+      for(var r = 0; r < recsGD.length; r++) {
+        registros.push(recsGD[r]);
+        imeiSet[recsGD[r].colG] = true;
+      }
+      
+      for(var r = 0; r < recsAT.length; r++) {
+        if(!imeiSet[recsAT[r].colG]) {
+          registros.push(recsAT[r]);
+          imeiSet[recsAT[r].colG] = true;
+        }
+      }
+
+      if (registros.length > 0) {
+        if (contagemPagina1[idBusca] === 1) {
+          dadosDestino[j][CONFIG.COL_DATA_ENTRADA] = registros.map(function(r){ return r.colU; }).join("\n");
+          dadosDestino[j][CONFIG.COL_GUARDAO_1] = registros.map(function(r){ return r.colG; }).join("\n");
+          dadosDestino[j][CONFIG.COL_GUARDAO_2] = registros.map(function(r){ return r.colR; }).join("\n");
+          dadosDestino[j][CONFIG.COL_GUARDAO_3] = registros.map(function(r){ return r.colS; }).join("\n");
+        } else {
+          var indice = usoSequencial[idBusca] || 0;
+          if (indice < registros.length) {
+            dadosDestino[j][CONFIG.COL_DATA_ENTRADA] = registros[indice].colU;
+            dadosDestino[j][CONFIG.COL_GUARDAO_1] = registros[indice].colG;
+            dadosDestino[j][CONFIG.COL_GUARDAO_2] = registros[indice].colR;
+            dadosDestino[j][CONFIG.COL_GUARDAO_3] = registros[indice].colS;
+            usoSequencial[idBusca] = indice + 1;
+          }
+        }
+        houveAlteracao = true;
+        contAtualizados++;
+      }
+    }
+  }
+  
+  if (houveAlteracao) {
+    abaDestino.getRange(2, 1, dadosDestino.length - 1, CONFIG.QTD_COLUNAS).setValues(dadosDestino.slice(1));
+    SpreadsheetApp.flush();
+    Browser.msgBox("✅ Sincronização Concluída!\n" + contAtualizados + " veículos atualizados com os dados de Guardião/Ativos.");
+  } else {
+    Browser.msgBox("⚠️ Nenhum dado novo encontrado para atualizar.");
+  }
+}
+/* --- Fipe baixa --- */
+/* --- MARCAR FIPE BAIXA (VERSÃO INTEGRADA AO MENU) --- */
+function marcarFipeBaixa() {
+  try {
+    // 1. Usa a função de intervalo que você já tem no menu
+    var intervalo = pedirIntervaloLinhas("📉 Marcar Fipe Baixa");
+    if (!intervalo) return;
+    
+    // 2. Autenticação padrão do seu sistema
+    var tokenSessao = autenticarSGA();
+    if (!tokenSessao) return;
+
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var abaAtiva = ss.getActiveSheet();
+    var dados = abaAtiva.getDataRange().getValues();
+    
+    // 3. Define o intervalo de linhas baseado no prompt
+    var i_inicio = CONFIG.LINHAS_CABECHALHO; 
+    var i_fim = dados.length - 1;
+    
+    if (intervalo.inicio !== -1) {
+      i_inicio = Math.max(intervalo.inicio - 1, CONFIG.LINHAS_CABECHALHO);
+      i_fim = Math.min(intervalo.fim - 1, dados.length - 1);
+    }
+    
+    var contMarcados = 0;
+    var contErrosApi = 0;
+    var codigosMoto = ["3", "126", "115", "100", "105", "127", "116", "32", "33", "34", "35", "95", "96", "97"];
+
+    // 4. Início da Varredura
+    for (var i = i_inicio; i <= i_fim; i++) {
+      var placa = dados[i][CONFIG.COL_PLACA] ? dados[i][CONFIG.COL_PLACA].toString().trim().toUpperCase() : "";
+      var chassi = dados[i][CONFIG.COL_CHASSI] ? dados[i][CONFIG.COL_CHASSI].toString().trim().toUpperCase() : "";
+      
+      // Prioriza Chassi, se não houver, usa Placa
+      var valorBusca = chassi !== "" ? chassi : placa;
+      var parametroBusca = chassi !== "" ? "chassi" : "placa";
+
+      if (!valorBusca) continue; 
+
+      var urlConsulta = SGA_CONFIG.URL_CONSULTA_BASE + encodeURIComponent(valorBusca) + "/" + parametroBusca;
+      
+      try {
+        var responseHttp = UrlFetchApp.fetch(urlConsulta, { 
+          "method": "get", 
+          "headers": { "Authorization": "Bearer " + tokenSessao }, 
+          "muteHttpExceptions": true 
+        });
+
+        if (responseHttp.getResponseCode() == 200) {
+          var json = JSON.parse(responseHttp.getContentText());
+          // Hinova pode retornar objeto direto ou array com um objeto dentro
+          var veiculo = Array.isArray(json) ? json[0] : json;
+          
+          if (veiculo && veiculo.codigo_tipo_veiculo != null) {
+            var tipoVeiculo = veiculo.codigo_tipo_veiculo.toString();
+            var valorFipeRaw = veiculo.valor_fipe;
+            var valorFipeNum = 0;
+            
+            // Tratamento robusto de conversão de moeda (Ex: "35.000,00" -> 35000.0)
+            if (valorFipeRaw) {
+              var strFipe = valorFipeRaw.toString().trim();
+              // Limpa pontos de milhar e troca vírgula por ponto
+              strFipe = strFipe.replace(/\./g, '').replace(',', '.');
+              // Remove qualquer caractere que não seja número ou ponto
+              strFipe = strFipe.replace(/[^\d.]/g, '');
+              valorFipeNum = parseFloat(strFipe) || 0;
+            }
+            
+            var isMoto = codigosMoto.indexOf(tipoVeiculo) > -1;
+            var isBaixa = false;
+            
+            // Regra de Negócio: Moto < 20k | Carro < 30k
+            if (valorFipeNum > 0) {
+              if (isMoto && valorFipeNum < 20000) isBaixa = true;
+              else if (!isMoto && valorFipeNum < 30000) isBaixa = true;
+            }
+            
+            // Grava o resultado na coluna definida no CONFIG (Coluna 26 = AA)
+            abaAtiva.getRange(i + 1, CONFIG.COL_FIPE_BAIXA + 1).setValue(isBaixa);
+            if (isBaixa) contMarcados++;
+            
+          }
+        } else {
+          contErrosApi++;
+        }
+      } catch(errChamada) { 
+        contErrosApi++; 
+      }
+      
+      // Pequena pausa para não sobrecarregar a API
+      Utilities.sleep(150);
+    }
+    
+    // Atualiza a planilha de uma vez só ao final (mais rápido)
+    SpreadsheetApp.flush(); 
+    Browser.msgBox("📊 Varredura de Fipe Baixa concluída!\n\n✅ " + contMarcados + " veículos marcados.\n⚠️ Falhas de consulta: " + contErrosApi);
+    
+  } catch (erroGeral) {
+    Browser.msgBox("❌ Erro ao processar Fipe Baixa:\n" + erroGeral.message);
+  }
+}
+/* --- FormatarComoEmail --- */
+function formatarComoEmail(textoHtmlOriginal, tituloEmail) {
+  var textoHTML = textoHtmlOriginal.replace(/\n/g, '<br>');
+  var antiSpamID = new Date().getTime();
+  
+  return `
+    <div style="font-family: Arial, sans-serif; font-size: 14px; color: #333333; max-width: 600px; margin: 0; line-height: 1.6;">
+      <h3 style="color: #333333; margin-bottom: 20px; font-weight: bold; text-transform: uppercase;">${tituloEmail}</h3>
+      <div style="margin-bottom: 20px;">
+        ${textoHTML}
+      </div>
+      <div style="border-top: 1px solid #dddddd; padding-top: 15px; margin-top: 20px; font-size: 13px; line-height: 1.5; color: #666666;">
+        <img src="https://www.zensegurosbr.com/uploads/images/configuracoes/redimencionar-230-78-logo.png" width="160" alt="ZEN Seguros" style="display: block; margin-bottom: 8px; border: none; outline: none; text-decoration: none;">
+        Atenciosamente,<br>
+        <strong style="color: #444444; font-size: 14px;">Setor de Rastreamento</strong><br>
+        ZEN Seguros<br>
+        (21) 3583-6320 | (21) 97222-0381
+      </div>
+      <div style="display:none; color:transparent; font-size:1px;">Anti-Spam ID: ${antiSpamID}</div>
+    </div>`;
+}
+/* --- TextoVerificarsinalEmail --- */
+function getTextoVerificacaoSinalEmail(nome, identificador, isFipeBaixa, isExpirado) {
+  var saudacao = `Olá, ${nome}!\n\nTudo bem?\n\n`;
+  var introducao = isExpirado 
+    ? `Verificamos que o prazo de 7 dias úteis para a validação/manutenção do rastreador do seu veículo (${identificador}) expirou.\n\nAinda não identificamos a normalização do sinal em nossos sistemas. Esse procedimento é essencial para garantir que o seu carro continue protegido.\n\nPara nos ajudar, poderia nos informar por aqui:\nQual a data e o horário aproximado da última vez que o veículo esteve em circulação?\n\n` 
+    : `Estamos entrando em contato para realizar uma verificação de rotina no sinal do rastreador instalado em seu veículo (${identificador}). Esse procedimento é essencial para garantir que o monitoramento esteja ativo e que seu carro continue protegido em nossos sistemas.\n\nPara nos ajudar na validação, poderia nos informar por aqui:\nQual a data e o horário aproximado da última vez que o veículo esteve em circulação?\n\n`;
+  
+  var alertaCobertura = isExpirado 
+    ? `Prazo Expirado:\nConforme informado anteriormente, a cobertura para sinistros de roubo e furto encontra-se suspensa até a regularização do equipamento. Por favor, entre em contato com urgência.\n\n` 
+    : `Prazo para Manutenção:\nInformamos que, caso seja constatada a necessidade de intervenção técnica, a senhora tem um prazo de até 7 dias úteis a partir do recebimento desta mensagem para efetuar a manutenção do rastreador. Após este período, a cobertura para sinistros de roubo e furto poderá ser suspensa até a regularização do equipamento.\n\nObs: Caso o veículo tenha circulado recentemente e o sinal seja normalizado após sua resposta, favor desconsiderar o prazo acima.\n\n`;
+  
+  var linksApps = `Acesso ao Monitoramento Pessoal\nPara que você possa acompanhar a localização do seu veículo em tempo real, disponibilizamos o acesso através dos nossos canais digitais. Seguem os links para download:\n\nApp Zen Seguros:\nAndroid: https://play.google.com/store/apps/details?id=com.zensegurosbr\nIOS: https://apps.apple.com/us/app/zen-seguros/id6753817012\nLogin: CPF (Sem pontuação)\nSenha: CPF (Sem pontuação)\n\nApp Rede Veículos:\nAndroid: https://play.google.com/store/apps/details?id=com.anpv.app.rastreamento.veicular&pcampaignid=web_share\nIOS: https://apps.apple.com/br/app/redeveiculos-com/id1144995005\nNavegador: https://anpv.rastreamento.vip/login?empresa=anpv&plataforma=web&redirect=yes\nLogin: CPF (Sem pontuação)\nSenha: 123456\n\nFico à disposição para auxiliá-la no agendamento da manutenção ou em caso de dúvidas sobre o acesso aos aplicativos.`;
+  
+  if (isFipeBaixa) {
+    return saudacao + introducao + linksApps;
+  } else {
+    return saudacao + introducao + alertaCobertura + linksApps;
+  }
+}
+/* --- TextoVerificacaoZap --- */
+function getTextoVerificacaoSinalWhatsApp(nome, identificador, isFipeBaixa, isExpirado) {
+  var nomeAjustado = nome ? nome.split(" ") : "Cliente";
+  var assinatura = "\n\nAtenciosamente,\nSetor de Rastreamento\nZEN Seguros\n(21) 3583-6320 - Telefone fixo.\n(21) 97222-0381 - Agendamento de manutenção.\n(21) 97240-1037 - Agendamento de instalação.";
+  
+  if (isExpirado) {
+    if (isFipeBaixa) {
+      return `Prezado(a) ${nomeAjustado}, olá! Somos do setor de Rastreamento da ZEN Seguros.\n\nVerificamos que o prazo de 7 dias úteis para a validação do rastreador do seu veículo (*${identificador}*) expirou, e o sinal permanece sem comunicação com nossos sistemas.\n\nPara darmos andamento à análise de forma correta, por favor, nos informe a *data e o horário aproximado* da última vez que o veículo esteve em circulação. Aguardamos o seu retorno.` + assinatura;
+    } else {
+      return `Prezado(a) ${nomeAjustado}, olá! Somos do setor de Rastreamento da ZEN Seguros.\n\nVerificamos que o prazo de 7 dias úteis para a validação e manutenção do rastreador do seu veículo (*${identificador}*) expirou.\n\n*Aviso Importante:* Conforme as normas de segurança, devido à falta de comunicação do equipamento e o término do prazo, a cobertura contra roubo e furto encontra-se *suspensa* até a devida regularização.\n\nPara análise imediata, por favor, entre em contato com urgência informando a *data e o horário aproximado* da última vez que o veículo esteve em circulação.` + assinatura;
+    }
+  } else {
+    if (isFipeBaixa) {
+      return `Prezado(a) ${nomeAjustado}, olá! Somos do setor de Rastreamento da ZEN Seguros.\n\nEstamos realizando uma verificação de rotina no sinal do rastreador instalado em seu veículo (*${identificador}*). Esse procedimento é essencial para garantir que o monitoramento esteja ativo e seu veículo segurado.\n\nPara nos auxiliar na validação, poderia nos informar a data e o horário aproximado da última vez que o veículo esteve em circulação? Aguardamos o seu retorno.` + assinatura;
+    } else {
+      return `Prezado(a) ${nomeAjustado}, olá! Somos do setor de Rastreamento da ZEN Seguros.\n\nEstamos realizando uma verificação de rotina no sinal do rastreador instalado em seu veículo (*${identificador}*). Esse procedimento é essencial para garantir que o monitoramento esteja ativo e seu veículo segurado.\n\nPara nos auxiliar na validação, poderia nos informar a data e o horário aproximado da última vez que o veículo esteve em circulação?\n\n*Aviso importante:* A partir dessa mensagem, caso seja constatada a necessidade de intervenção técnica, informamos que haverá um prazo de 7 dias úteis para a manutenção. O não cumprimento deste prazo poderá acarretar a suspensão da cobertura para roubo e furto. Aguardamos o seu retorno.` + assinatura;
+    }
+  }
+}
+/* --- DispararFluxo --- */
+function dispararFluxo(nomeResponsavel) {
+  var intervalo = pedirIntervaloLinhas("✉️ Enviar E-mails (" + nomeResponsavel + ")");
+  if (!intervalo) {
+    return;
+  }
+  
+  var planilhaAtiva = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+  var nomeAbaAtual = planilhaAtiva.getName();
+  var isAbaExpirado = (nomeAbaAtual.indexOf("2 -") > -1 || nomeAbaAtual.toLowerCase().indexOf("expirado") > -1);
+  var dados = planilhaAtiva.getDataRange().getValues();
+  var emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+  var hoje = new Date();
+  var dataFormatada = Utilities.formatDate(hoje, Session.getScriptTimeZone(), "dd/MM/yyyy HH:mm");
+  var contEnviados = 0;
+  var contErros = 0;
+  
+  var i_inicio = 1;
+  var i_fim = dados.length - 1;
+  
+  if (intervalo.inicio !== -1) {
+    i_inicio = Math.max(intervalo.inicio - 1, 1);
+    i_fim = Math.min(intervalo.fim - 1, dados.length - 1);
+  }
+
+  for (var i = i_fim; i >= i_inicio; i--) {
+    var linha = dados[i];
+    var nome = linha[CONFIG.COL_NOME] || "Cliente";
+    var email = linha[CONFIG.COL_EMAIL] ? linha[CONFIG.COL_EMAIL].toString().trim() : "";
+    var placa = linha[CONFIG.COL_PLACA] ? linha[CONFIG.COL_PLACA].toString().trim().toUpperCase() : "";
+    var chassi = linha[CONFIG.COL_CHASSI] ? linha[CONFIG.COL_CHASSI].toString().trim().toUpperCase() : "";
+    var identificador = placa || chassi;
+    
+    var statusEnviar = (linha[CONFIG.COL_ENVIAR] ? linha[CONFIG.COL_ENVIAR].toString().trim().toLowerCase() : "");
+    if (statusEnviar !== "enviar") {
+      continue;
+    }
+    
+    var jaEnviouEmail = (linha[CONFIG.COL_CHECK_EMAIL] === true || linha[CONFIG.COL_CHECK_EMAIL] === "TRUE");
+    var isTravaEstado = (linha[CONFIG.COL_TRAVA_ESTADO] === true || linha[CONFIG.COL_TRAVA_ESTADO] === "TRUE");
+    var isFipeBaixa = (linha[CONFIG.COL_FIPE_BAIXA] === true || linha[CONFIG.COL_FIPE_BAIXA] === "TRUE");
+    
+    if (!identificador || jaEnviouEmail || isTravaEstado) {
+      continue;
+    }
+    
+    if (!email || !emailRegex.test(email)) {
+      sinalizarErroPlanilha(planilhaAtiva, i + 1, "E-mail inválido", dataFormatada);
+      contErros++;
+      continue;
+    }
+    
+    try {
+      var assunto = (isAbaExpirado ? "[PRAZO EXPIRADO] " : "") + "Verificação do sinal do seu rastreador – Veículo: " + identificador;
+      var tituloHTML = isAbaExpirado ? "Prazo Encerrado - Verificação" : "Aviso Importante - Verificação de Sinal";
+      var textoPuro = getTextoVerificacaoSinalEmail(nome, identificador, isFipeBaixa, isAbaExpirado);
+      var corpoHTML = formatarComoEmail(textoPuro, tituloHTML);
+      
+      GmailApp.sendEmail(email, assunto, textoPuro, { htmlBody: corpoHTML });
+      
+      planilhaAtiva.getRange(i + 1, CONFIG.COL_ENVIAR + 1).setValue("Enviado");
+      planilhaAtiva.getRange(i + 1, CONFIG.COL_CHECK_EMAIL + 1).setValue(true);
+      planilhaAtiva.getRange(i + 1, CONFIG.COL_DATA_EMAIL + 1).setValue(dataFormatada);
+      planilhaAtiva.getRange(i + 1, CONFIG.COL_RESPONSAVEL_EMAIL + 1).setValue(nomeResponsavel);
+      planilhaAtiva.getRange(i + 1, CONFIG.COL_EMAIL + 1).setFontColor("#000000").setFontWeight("normal");
+      
+      SpreadsheetApp.flush();
+      
+      linha[CONFIG.COL_ENVIAR] = "Enviado";
+      linha[CONFIG.COL_DATA_EMAIL] = dataFormatada;
+      linha[CONFIG.COL_RESPONSAVEL_EMAIL] = nomeResponsavel;
+      
+      try {
+        registrarAuditoriaLog(linha, isAbaExpirado ? "E-mail Enviado (Expirado)" : "E-mail Enviado (Verificação)", dataFormatada, nomeResponsavel);
+      } catch(errAuditoria) {}
+      
+      contEnviados++;
+      Utilities.sleep(Math.floor(Math.random() * (12000 - 3000 + 1)) + 3000);
+      
+    } catch (e) {
+      sinalizarErroPlanilha(planilhaAtiva, i + 1, "Falha de Envio: " + e.message, dataFormatada);
+      contErros++;
+    }
+  }
+  
+  executarGeradorLinksManual(intervalo);
+  Browser.msgBox("Relatório (" + nomeResponsavel + "):\n✅ Enviados: " + contEnviados + "\n❌ Erros: " + contErros);
+}
+/* --- LinkZap --- */
+function executarGeradorLinksManual(intervalo) {
+  var abaAtiva = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+  var dados = abaAtiva.getDataRange().getValues();
+  var nomeAbaAtual = abaAtiva.getName();
+  var isAbaExpirado = (nomeAbaAtual.indexOf("2 -") > -1 || nomeAbaAtual.toLowerCase().indexOf("expirado") > -1);
+  
+  var i_inicio = 1;
+  var i_fim = dados.length - 1;
+  
+  if (intervalo && intervalo.inicio !== -1) {
+    i_inicio = Math.max(intervalo.inicio - 1, 1);
+    i_fim = Math.min(intervalo.fim - 1, dados.length - 1);
+  }
+
+  for (var i = i_inicio; i <= i_fim; i++) {
+    var telefone = dados[i][CONFIG.COL_TELEFONE];
+    if (telefone) {
+      var numeroLimpo = telefone.toString().replace(/\D/g, "");
+      
+      if (numeroLimpo.length >= 10) {
+        if (!numeroLimpo.startsWith("55")) {
+          numeroLimpo = "55" + numeroLimpo;
+        }
+        
+        var placa = dados[i][CONFIG.COL_PLACA] ? dados[i][CONFIG.COL_PLACA].toString().trim().toUpperCase() : "";
+        var chassi = dados[i][CONFIG.COL_CHASSI] ? dados[i][CONFIG.COL_CHASSI].toString().trim().toUpperCase() : "";
+        var ident = placa || chassi;
+        var isFipeBaixa = (dados[i][CONFIG.COL_FIPE_BAIXA] === true || dados[i][CONFIG.COL_FIPE_BAIXA] === "TRUE");
+        
+        var textoWhats = getTextoVerificacaoSinalWhatsApp(dados[i][CONFIG.COL_NOME], ident, isFipeBaixa, isAbaExpirado);
+        var mensagemFinal = encodeURIComponent(textoWhats);
+        var numVisivel = telefone.toString().replace(/=HYPERLINK\(".*?";\s*"(.*?)"\)/, "$1");
+        
+        abaAtiva.getRange(i + 1, CONFIG.COL_TELEFONE + 1).setFormula('=HYPERLINK("https://wa.me/' + numeroLimpo + '?text=' + mensagemFinal + '"; "' + numVisivel + '")');
+      }
+    }
+  }
+  
+  if (intervalo) {
+    Browser.msgBox("✅ Links dinâmicos do WhatsApp recriados!");
+  }
+}
+/* --- EstadosSGA --- */
+function verificarEstadoSGA() {
+  var intervalo = pedirIntervaloLinhas("📍 Atualizar Estados e Travar (Fora RJ)");
+  if (!intervalo) {
+    return;
+  }
+  
+  var tokenSessao = autenticarSGA();
+  if (!tokenSessao) {
+    return;
+  }
+  
+  var aba = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+  var dados = aba.getDataRange().getValues();
+  var contAtualizados = 0;
+  var contTravados = 0;
+  
+  var i_inicio = 1;
+  var i_fim = dados.length - 1;
+  
+  if (intervalo.inicio !== -1) {
+    i_inicio = Math.max(intervalo.inicio - 1, 1);
+    i_fim = Math.min(intervalo.fim - 1, dados.length - 1);
+  }
+
+  for (var i = i_inicio; i <= i_fim; i++) {
+    var placa = dados[i][CONFIG.COL_PLACA] ? dados[i][CONFIG.COL_PLACA].toString().trim().toUpperCase() : "";
+    var chassi = dados[i][CONFIG.COL_CHASSI] ? dados[i][CONFIG.COL_CHASSI].toString().trim().toUpperCase() : "";
+    var estadoAtual = dados[i][CONFIG.COL_ESTADO] ? dados[i][CONFIG.COL_ESTADO].toString().trim().toUpperCase() : "";
+    
+    if (estadoAtual !== "") {
+      if (estadoAtual !== "RJ" && estadoAtual !== "N/A") {
+        aba.getRange(i + 1, CONFIG.COL_TRAVA_ESTADO + 1).setValue(true);
+      }
+      continue;
+    }
+    
+    var valorBusca = placa || chassi;
+    var parametroBusca = placa ? "placa" : "chassi";
+    
+    if (!valorBusca) {
+      continue;
+    }
+    
+    try {
+      var endpoint = SGA_CONFIG.URL_CONSULTA_BASE + encodeURIComponent(valorBusca) + "/" + parametroBusca;
+      var responseVeic = UrlFetchApp.fetch(endpoint, {
+        "method": "get",
+        "headers": {
+          "Authorization": "Bearer " + tokenSessao
+        },
+        "muteHttpExceptions": true
+      });
+      
+      if (responseVeic.getResponseCode() == 200) {
+        var v = JSON.parse(responseVeic.getContentText());
+        
+        if (v && v.codigo_associado) {
+          var responseAssoc = UrlFetchApp.fetch("https://api.hinova.com.br/api/sga/v2/associado/buscar/" + v.codigo_associado + "/codigo", {
+            "method": "get",
+            "headers": {
+              "Authorization": "Bearer " + tokenSessao
+            },
+            "muteHttpExceptions": true
+          });
+          
+          if (responseAssoc.getResponseCode() == 200) {
+            var estadoCliente = JSON.parse(responseAssoc.getContentText()).estado ? JSON.parse(responseAssoc.getContentText()).estado.toString().trim().toUpperCase() : "N/A";
+            aba.getRange(i + 1, CONFIG.COL_ESTADO + 1).setValue(estadoCliente);
+            contAtualizados++;
+            
+            if (estadoCliente !== "RJ" && estadoCliente !== "N/A") {
+              aba.getRange(i + 1, CONFIG.COL_TRAVA_ESTADO + 1).setValue(true);
+              contTravados++;
+            }
+          }
+        }
+      }
+    } catch(e) {}
+  }
+  SpreadsheetApp.flush();
+  Browser.msgBox("📍 Estados atualizados e travas aplicadas!");
+}
+/* --- DestacarMoto --- */
+function destacarMotocicletasSGA() {
+  var intervalo = pedirIntervaloLinhas("🏍️ Destacar Motos no SGA");
+  if (!intervalo) {
+    return;
+  }
+  
+  var tokenSessao = autenticarSGA();
+  if (!tokenSessao) {
+    return;
+  }
+  
+  var aba = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+  var ultimaColuna = aba.getLastColumn();
+  var dados = aba.getDataRange().getValues();
+  var codigosMoto = ["3", "126", "115", "100", "105", "127", "116", "32", "33", "34", "35", "95", "96", "97"];
+  var contMotos = 0;
+  
+  var i_inicio = 1;
+  var i_fim = dados.length - 1;
+  
+  if (intervalo.inicio !== -1) {
+    i_inicio = Math.max(intervalo.inicio - 1, 1);
+    i_fim = Math.min(intervalo.fim - 1, dados.length - 1);
+  } else {
+    if (aba.getLastRow() > 1) {
+      aba.getRange(2, 1, aba.getLastRow() - 1, ultimaColuna).setBackground(null);
+    }
+  }
+
+  for (var i = i_inicio; i <= i_fim; i++) {
+    var placa = dados[i][CONFIG.COL_PLACA] ? dados[i][CONFIG.COL_PLACA].toString().trim().toUpperCase() : "";
+    var chassi = dados[i][CONFIG.COL_CHASSI] ? dados[i][CONFIG.COL_CHASSI].toString().trim().toUpperCase() : "";
+    var valorBusca = placa || chassi;
+    var parametroBusca = placa ? "placa" : "chassi";
+    
+    if (!valorBusca) {
+      continue;
+    }
+    
+    try {
+      var endpoint = SGA_CONFIG.URL_CONSULTA_BASE + encodeURIComponent(valorBusca) + "/" + parametroBusca;
+      var response = UrlFetchApp.fetch(endpoint, {
+        "method": "get",
+        "headers": {
+          "Authorization": "Bearer " + tokenSessao
+        },
+        "muteHttpExceptions": true
+      });
+      
+      if (response.getResponseCode() == 200) {
+        var v = Array.isArray(JSON.parse(response.getContentText())) ? JSON.parse(response.getContentText()) : JSON.parse(response.getContentText());
+        
+        if (v && codigosMoto.indexOf(v.codigo_tipo_veiculo.toString()) > -1) {
+          aba.getRange(i + 1, 1, 1, ultimaColuna).setBackground("#99E8B8");
+          contMotos++;
+        }
+      }
+    } catch(e) {}
+  }
+  Browser.msgBox("🏍️ " + contMotos + " Motos destacadas e cores atualizadas.");
+}
+/* --- VerificarEmail --- */
+function verificarRespostasEmail() {
+  var intervalo = pedirIntervaloLinhas("📥 Verificar Respostas de E-mail");
+  if (!intervalo) {
+    return;
+  }
+  
+  try {
+    var threads = GmailApp.search('-from:me -from:mailer-daemon newer_than:14d', 0, 150);
+  } catch(e) {
+    return Browser.msgBox("❌ Falha ao tentar acessar o seu Gmail.");
+  }
+  
+  if (threads.length === 0) {
+    return Browser.msgBox("Nenhum e-mail recebido nos últimos 14 dias.");
+  }
+  
+  var mensagensRecebidas = [];
+  threads.forEach(function(thread) {
+    thread.getMessages().forEach(function(msg) {
+      var match = msg.getFrom().match(/([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+\.[a-zA-Z0-9_-]+)/);
+      if (match) {
+        mensagensRecebidas.push({
+          email: match.toLowerCase().trim(),
+          textoCruzamento: msg.getSubject().toUpperCase() + " \n " + msg.getPlainBody().toUpperCase()
+        });
+      }
+    });
+  });
+
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var aba = ss.getActiveSheet();
+  var dados = aba.getDataRange().getValues();
+  var i_inicio = 1;
+  var i_fim = dados.length - 1;
+  var contMarcados = 0;
+  
+  if (intervalo.inicio !== -1) {
+    i_inicio = Math.max(intervalo.inicio - 1, 1);
+    i_fim = Math.min(intervalo.fim - 1, dados.length - 1);
+  }
+
+  for (var i = i_inicio; i <= i_fim; i++) {
+    var emailCliente = dados[i][CONFIG.COL_EMAIL] ? dados[i][CONFIG.COL_EMAIL].toString().toLowerCase().trim() : "";
+    var identificador = (dados[i][CONFIG.COL_PLACA] ? dados[i][CONFIG.COL_PLACA].toString().toUpperCase().trim() : "") || (dados[i][CONFIG.COL_CHASSI] ? dados[i][CONFIG.COL_CHASSI].toString().toUpperCase().trim() : "");
+    var jaRespondeu = (dados[i][CONFIG.COL_RESPONDEU] === true || dados[i][CONFIG.COL_RESPONDEU] === "TRUE");
+    
+    if (emailCliente !== "" && identificador !== "" && !jaRespondeu) {
+      if (mensagensRecebidas.some(function(msg) { return msg.email === emailCliente && msg.textoCruzamento.indexOf(identificador) > -1; })) {
+        aba.getRange(i + 1, CONFIG.COL_RESPONDEU + 1).setValue(true);
+        contMarcados++;
+      }
+    }
+  }
+  Browser.msgBox("📥 Radar de Respostas Concluído!\n\n" + contMarcados + " clientes responderam ao e-mail e tiveram a caixa marcada.");
+}
+/* --- Duplicatas --- */
+function atualizarVerificacaoDeDuplicados() {
+  var aba = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+  if (aba.getLastRow() < 2) {
+    return;
+  }
+  
+  var dados = aba.getRange(2, 1, aba.getLastRow() - 1, aba.getLastColumn()).getValues();
+  var contagemPlaca = {};
+  var contagemChassi = {};
+  var resultados = [];
+  
+  for (var i = 0; i < dados.length; i++) {
+    var p = dados[i][CONFIG.COL_PLACA].toString().trim().toUpperCase();
+    var c = dados[i][CONFIG.COL_CHASSI].toString().trim().toUpperCase();
+    
+    if (p) {
+      contagemPlaca[p] = (contagemPlaca[p] || 0) + 1;
+    }
+    if (c) {
+      contagemChassi[c] = (contagemChassi[c] || 0) + 1;
+    }
+  }
+  
+  for (var i = 0; i < dados.length; i++) {
+    var p = dados[i][CONFIG.COL_PLACA].toString().trim().toUpperCase();
+    var c = dados[i][CONFIG.COL_CHASSI].toString().trim().toUpperCase();
+    
+    if (!p && !c) {
+      resultados.push([""]);
+    } else if ((p && contagemPlaca[p] > 1) || (c && contagemChassi[c] > 1)) {
+      resultados.push(["Repetido"]);
+    } else {
+      resultados.push(["Único"]);
+    }
+  }
+  
+  aba.getRange(2, CONFIG.COL_VERIFICADOR + 1, resultados.length, 1).setValues(resultados);
+  Browser.msgBox("✅ Verificação de duplicidade concluída.");
+}
+/* --- RemoverDuplicados --- */
+function removerDuplicadosPlacaChassi() {
+  var ui = SpreadsheetApp.getUi();
+  var response = ui.alert(
+    "🗑️ Excluir Linhas Duplicadas",
+    "Esta ação vai EXCLUIR permanentemente as linhas com Placa ou Chassi repetidos, mantendo apenas a PRIMEIRA linha que o sistema encontrar.\n\nDeseja continuar?",
+    ui.ButtonSet.YES_NO
+  );
+  if (response !== ui.Button.YES) {
+    return;
+  }
+
+  var aba = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+  var ultimaLinha = aba.getLastRow();
+  if (ultimaLinha < 2) {
+    return Browser.msgBox("Aba vazia ou sem dados suficientes.");
+  }
+  
+  var dados = aba.getRange(2, 1, ultimaLinha - 1, aba.getLastColumn()).getValues();
+  var vistasPlaca = {};
+  var vistasChassi = {};
+  var linhasParaDeletar = [];
+  
+  for (var i = 0; i < dados.length; i++) {
+    var p = dados[i][CONFIG.COL_PLACA].toString().trim().toUpperCase();
+    var c = dados[i][CONFIG.COL_CHASSI].toString().trim().toUpperCase();
+    var duplicado = false;
+    
+    if (p && vistasPlaca[p]) {
+      duplicado = true;
+    }
+    if (c && vistasChassi[c]) {
+      duplicado = true;
+    }
+    
+    if (duplicado) {
+      linhasParaDeletar.push(i + 2);
+    } else {
+      if (p) vistasPlaca[p] = true;
+      if (c) vistasChassi[c] = true;
+    }
+  }
+  
+  for (var j = linhasParaDeletar.length - 1; j >= 0; j--) {
+    aba.deleteRow(linhasParaDeletar[j]);
+  }
+  
+  Browser.msgBox("✅ Limpeza Concluída!\n\n" + linhasParaDeletar.length + " linhas duplicadas foram excluídas com sucesso.");
+}
+/* --- MigraçãoExpirado --- */
+function executarMigracaoExpirado() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var abaOrigem = ss.getSheetByName(CONFIG.NOME_ABA_PRINCIPAL);
+  var abaDestino = ss.getSheetByName(CONFIG.ABA_EXPIRADO) || ss.insertSheet(CONFIG.ABA_EXPIRADO);
+  
+  if (!abaOrigem) {
+    return Browser.msgBox("❌ Aba 1 (Verificação) não encontrada.");
+  }
+  
+  var dados = abaOrigem.getDataRange().getValues();
+  var hoje = new Date();
+  var movidos = 0;
+  
+  for (var i = dados.length - 1; i >= 1; i--) {
+    if ((dados[i][CONFIG.COL_DATA_EMAIL] || dados[i][CONFIG.COL_DATA_WHATS]) && !dados[i][CONFIG.COL_RESPONDEU]) {
+      if (calcularDiasUteis(dados[i][CONFIG.COL_DATA_EMAIL] || dados[i][CONFIG.COL_DATA_WHATS], hoje) >= 7) {
+        var linhaLimpa = dados[i].slice();
+        linhaLimpa[CONFIG.COL_CHECK_EMAIL] = false;
+        linhaLimpa[CONFIG.COL_DATA_EMAIL] = "";
+        linhaLimpa[CONFIG.COL_CHECK_WHATS] = false;
+        linhaLimpa[CONFIG.COL_DATA_WHATS] = "";
+        linhaLimpa[CONFIG.COL_ENVIAR] = "";
+        linhaLimpa[CONFIG.COL_RESPONSAVEL_EMAIL] = "";
+        linhaLimpa[CONFIG.COL_RESPONSAVEL_WHATS] = "";
+        
+        abaDestino.appendRow(linhaLimpa);
+        abaOrigem.deleteRow(i + 1);
+        movidos++;
+      }
+    }
+  }
+  Browser.msgBox("✅ " + movidos + " clientes movidos para a aba '2 - Expirado' após 7 dias.");
+}
+/* --- MigraçãoSemRetorno --- */
+function executarMigracaoSemRetorno() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var abaOrigem = ss.getSheetByName(CONFIG.ABA_EXPIRADO);
+  var abaDestino = ss.getSheetByName(CONFIG.ABA_SEM_RETORNO) || ss.insertSheet(CONFIG.ABA_SEM_RETORNO);
+  
+  if (!abaOrigem) {
+    return Browser.msgBox("❌ Aba 2 (Expirado) não encontrada.");
+  }
+  
+  var dados = abaOrigem.getDataRange().getValues();
+  var hoje = new Date();
+  var movidos = 0;
+  
+  for (var i = dados.length - 1; i >= 1; i--) {
+    if ((dados[i][CONFIG.COL_DATA_EMAIL] || dados[i][CONFIG.COL_DATA_WHATS]) && !dados[i][CONFIG.COL_RESPONDEU]) {
+      if (calcularDiasUteis(dados[i][CONFIG.COL_DATA_EMAIL] || dados[i][CONFIG.COL_DATA_WHATS], hoje) >= 5) {
+        abaDestino.appendRow(dados[i]);
+        abaOrigem.deleteRow(i + 1);
+        movidos++;
+      }
+    }
+  }
+  Browser.msgBox("✅ " + movidos + " clientes sem resposta na etapa Expirado foram movidos para a aba 'Sem retorno'.");
+}
+/* --- ErrosEmail --- */
+function conciliarErrosMailerDaemon() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var abaErro = ss.getSheetByName(CONFIG.ABA_ERRO) || ss.insertSheet(CONFIG.ABA_ERRO);
+  
+  try {
+    var threads = GmailApp.search('from:mailer-daemon newer_than:2d', 0, 50);
+  } catch(e) {
+    return Browser.msgBox("Falha de conexão com o Gmail.");
+  }
+  
+  if (threads.length === 0) {
+    return Browser.msgBox("Nenhum e-mail devolvido nas últimas 48h.");
+  }
+  
+  var dataFormatada = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "dd/MM/yyyy HH:mm");
+  var falhasMapeadas = {};
+  
+  threads.forEach(function(thread) {
+    var txt = thread.getMessages().getPlainBody().toLowerCase();
+    var match = txt.match(/([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+\.[a-zA-Z0-9_-]+)/g);
+    var err = (txt.indexOf("quota") > -1 || txt.indexOf("full") > -1) ? "Caixa de e-mail cheia" : "Endereço Inválido / Bloqueado";
+    
+    if (match) {
+      match.forEach(function(e) {
+        falhasMapeadas[e.toLowerCase().trim()] = err;
+      });
+    }
+  });
+  
+  var abaAtual = ss.getActiveSheet();
+  var dados = abaAtual.getDataRange().getValues();
+  var contagemErros = 0;
+  
+  for (var j = dados.length - 1; j >= 1; j--) {
+    var email = dados[j][CONFIG.COL_EMAIL] ? dados[j][CONFIG.COL_EMAIL].toString().toLowerCase().trim() : "";
+    if (falhasMapeadas[email]) {
+      var linhaParaErro = dados[j].slice();
+      linhaParaErro.push("MOTIVO DO ERRO GMAIL: " + falhasMapeadas[email], dataFormatada);
+      abaErro.appendRow(linhaParaErro);
+      abaAtual.getRange(j + 1, CONFIG.COL_EMAIL + 1).setFontColor("#FF0000").setFontWeight("bold");
+      contagemErros++;
+    }
+  }
+  Browser.msgBox("⚠️ " + contagemErros + " e-mails verificados como erro e movidos para relatório!");
+}
+/* --- AutenticarSGA --- */
+function autenticarSGA() {
+  try {
+    var options = {
+      "method": "post",
+      "headers": {
+        "Authorization": "Bearer " + SGA_CONFIG.TOKEN_ASSOCIACAO,
+        "Content-Type": "application/json",
+        "Accept": "application/json"
+      },
+      "payload": JSON.stringify({
+        "usuario": SGA_CONFIG.USUARIO,
+        "senha": SGA_CONFIG.SENHA
+      }),
+      "muteHttpExceptions": true
+    };
+    
+    var res = UrlFetchApp.fetch(SGA_CONFIG.URL_AUTH, options);
+    var codigoRetorno = res.getResponseCode();
+    var textoRetorno = res.getContentText();
+    
+    if (codigoRetorno !== 200) {
+      Browser.msgBox("🔍 DETETIVE HINOVA:\nA Hinova recusou o nosso login!\n\nCódigo do Erro: " + codigoRetorno + "\nResposta deles: " + textoRetorno);
+      return null;
+    }
+    
+    var json = JSON.parse(textoRetorno);
+    return json.token_usuario || null;
+    
+  } catch(e) {
+    Browser.msgBox("❌ Erro do Google ao tentar chegar na Hinova: " + e.message);
+    return null;
+  }
+}
+/* --- DEMAIS FUNÇÕES DO SISTEMA --- */
+function registrarAuditoriaLog(linhaDados, acao, dataHora, responsavel) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var abaAuditoria = ss.getSheetByName(CONFIG.ABA_AUDITORIA);
+  
+  if (!abaAuditoria) {
+    abaAuditoria = ss.insertSheet(CONFIG.ABA_AUDITORIA);
+  }
+  
+  if (abaAuditoria.getLastRow() === 0) {
+    var abaOrigem = ss.getSheetByName(CONFIG.NOME_ABA_PRINCIPAL);
+    var cabecalhoOrigem = [];
+    if (abaOrigem) {
+      cabecalhoOrigem = abaOrigem.getRange(1, 1, 1, abaOrigem.getLastColumn()).getValues();
+    } else {
+      for(var c = 0; c < linhaDados.length; c++) {
+        cabecalhoOrigem.push("Coluna " + (c + 1));
+      }
+    }
+    var novoCabecalho = ["Data/Hora Envio", "Atendente", "Ação Realizada"].concat(cabecalhoOrigem);
+    abaAuditoria.appendRow(novoCabecalho);
+    abaAuditoria.getRange(1, 1, 1, novoCabecalho.length).setBackground("#d9d9d9").setFontWeight("bold");
+    abaAuditoria.setFrozenRows(1);
+  }
+  abaAuditoria.appendRow([dataHora, responsavel, acao].concat(linhaDados));
+}
+
+function sinalizarErroPlanilha(aba, linha, motivo, dataHora) {
+  var erro = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(CONFIG.ABA_ERRO) || SpreadsheetApp.getActiveSpreadsheet().insertSheet(CONFIG.ABA_ERRO);
+  var d = aba.getRange(linha, 1, 1, aba.getLastColumn()).getValues();
+  d.push("ERRO SISTÊMICO: " + motivo, dataHora);
+  erro.appendRow(d);
+  aba.getRange(linha, CONFIG.COL_EMAIL + 1).setFontColor("#FF0000").setFontWeight("bold");
+}
+
+function calcularDiasUteis(dataInicialStr, dataFinal) {
+  if (!dataInicialStr) return 0;
+  var d = null;
+  
+  if (dataInicialStr instanceof Date) {
+    d = new Date(dataInicialStr.getTime());
+  } else {
+    var stringData = dataInicialStr.toString();
+    if (stringData.indexOf("/") > -1) {
+      var partes = stringData.split(" ").split("/");
+      d = new Date(partes, partes - 1, partes);
+    } else {
+      d = new Date(dataInicialStr);
+    }
+  }
+  
+  if (isNaN(d.getTime())) return 0;
+  
+  var dataHoje = new Date(dataFinal.getTime());
+  dataHoje.setHours(0, 0, 0, 0);
+  d.setHours(0, 0, 0, 0);
+  
+  var diasUteis = 0;
+  var dataAtual = new Date(d.getTime());
+  dataAtual.setDate(dataAtual.getDate() + 1);
+  
+  while (dataAtual <= dataHoje) {
+    var diaSemana = dataAtual.getDay();
+    if (diaSemana !== 0 && diaSemana !== 6 && !ehFeriadoBrasileiro(dataAtual)) {
+      diasUteis++;
+    }
+    dataAtual.setDate(dataAtual.getDate() + 1);
+  }
+  return diasUteis;
+}
+
+function ehFeriadoBrasileiro(data) {
+  var ano = data.getFullYear();
+  var mes = data.getMonth();
+  var dia = data.getDate();
+  
+  var feriadosFixos = [
+    "1/0",   // 01 de Janeiro
+    "21/3",  // 21 de Abril
+    "23/3",  // 23 de Abril
+    "1/4",   // 01 de Maio
+    "24/5",  // 24 de Junho
+    "7/8",   // 07 de Setembro
+    "12/9",  // 12 de Outubro
+    "2/10",  // 02 de Novembro
+    "15/10", // 15 de Novembro
+    "20/10", // 20 de Novembro
+    "25/11"  // 25 de Dezembro
+  ];
+  
+  var chaveData = dia + "/" + mes;
+  
+  if (feriadosFixos.indexOf(chaveData) > -1) {
+    return true;
+  }
+  
+  var a = ano % 19;
+  var b = Math.floor(ano / 100);
+  var c = ano % 100;
+  var d = Math.floor(b / 4);
+  var e = b % 4;
+  var f = Math.floor((b + 8) / 25);
+  var g = Math.floor((b - f + 1) / 3);
+  var h = (19 * a + b - d - g + 15) % 30;
+  var i = Math.floor(c / 4);
+  var k = c % 4;
+  var l = (32 + 2 * e + 2 * i - h - k) % 7;
+  var m = Math.floor((a + 11 * h + 22 * l) / 451);
+  var mesPascoa = Math.floor((h + l - 7 * m + 114) / 31) - 1;
+  var diaPascoa = ((h + l - 7 * m + 114) % 31) + 1;
+  
+  var pascoa = new Date(ano, mesPascoa, diaPascoa);
+  var sextaSanta = new Date(pascoa.getTime());
+  
+  sextaSanta.setDate(pascoa.getDate() - 2);
+  
+  if (sextaSanta.getDate() === dia && sextaSanta.getMonth() === mes) {
+    return true;
+  }
+  
+  var carnaval = new Date(pascoa.getTime());
+  carnaval.setDate(pascoa.getDate() - 47);
+  
+  if (carnaval.getDate() === dia && carnaval.getMonth() === mes) {
+    return true;
+  }
+  
+  var corpusChristi = new Date(pascoa.getTime());
+  corpusChristi.setDate(pascoa.getDate() + 60);
+  
+  if (corpusChristi.getDate() === dia && corpusChristi.getMonth() === mes) {
+    return true;
+  }
+  
+  return false;
+}
+// --- FIM DO SCRIPT ---
